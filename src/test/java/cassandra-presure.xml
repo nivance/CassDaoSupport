@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+    xmlns:context="http://www.springframework.org/schema/context"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+	<!-- load cassandra config file -->
+	<bean class="com.joyveb.support.cassandra.CassandraConfigHolder" init-method="init"/>
+   
+    <bean id="cassandraHostConfigurator" class="me.prettyprint.cassandra.service.CassandraHostConfigurator">
+        <constructor-arg value="${cassandra.hosts}"/>
+    </bean>
+
+    <bean id="cluster" class="me.prettyprint.cassandra.service.ThriftCluster">
+        <constructor-arg value="${cassandra.cluster}"/>
+        <constructor-arg ref="cassandraHostConfigurator"/>
+    </bean>
+
+    <bean id="consistencyLevelPolicy" class="me.prettyprint.cassandra.model.ConfigurableConsistencyLevel">
+        <property name="defaultReadConsistencyLevel" value="QUORUM"/>
+        <property name="defaultWriteConsistencyLevel" value="QUORUM"/>
+        <property name="readCfConsistencyLevels" ref="read_CF_CLS"/>
+        <property name="writeCfConsistencyLevels" ref="write_CF_CLS"/>
+    </bean>
+    
+    <!-- 读一致性级别配置 -->
+    <bean id="read_CF_CLS" class="org.springframework.beans.factory.config.MapFactoryBean">
+		<property name="sourceMap">
+			<map merge="true" key-type="java.lang.String" value-type="me.prettyprint.hector.api.HConsistencyLevel">
+				<entry key="T_SIM_GAMEINFO" value="ONE"/>
+			</map>
+		</property>
+	</bean>
+	
+	  <!-- 读一致性级别配置 -->
+    <bean id="write_CF_CLS" class="org.springframework.beans.factory.config.MapFactoryBean">
+		<property name="sourceMap">
+			<map merge="true" key-type="java.lang.String" value-type="me.prettyprint.hector.api.HConsistencyLevel">
+				<entry key="T_SIM_GAMEINFO" value="ONE"/>
+			</map>
+		</property>
+	</bean>
+
+    <bean id="keyspace" class="me.prettyprint.hector.api.factory.HFactory" factory-method="createKeyspace">
+        <constructor-arg value="${cassandra.keyspace}"/>
+        <constructor-arg ref="cluster"/>
+        <constructor-arg ref="consistencyLevelPolicy"/>
+    </bean>
+	
+   <bean id="simGameInfoDAO" class="com.joyveb.test.cassandra.dao.impl.SimGameInfoDAOImpl">
+        <constructor-arg ref="keyspace"/>
+        <constructor-arg value="T_SIM_GAMEINFO"/>
+    </bean>
+</beans>
