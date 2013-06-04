@@ -1,0 +1,17 @@
+CREATE KEYSPACE gxsim
+with placement_strategy = 'org.apache.cassandra.locator.NetworkTopologyStrategy'
+and strategy_options = {'DC1' : 1 , 'DC2' : 1}
+AND durable_writes = true;	
+
+create column family T_SIM_GAMEINFO with comparator=UTF8Type
+	AND key_validation_class=UTF8Type
+	AND default_validation_class = UTF8Type
+	and column_metadata=[
+		{column_name: GAMENAME, validation_class: UTF8Type},
+		{column_name: LTYPE, validation_class: UTF8Type},
+		{column_name: PLAYNAME, validation_class: UTF8Type},
+		{column_name: EXPIREDDATES, validation_class: LongType},
+		{column_name: PRIZEDATE, validation_class: UTF8Type}
+	]
+	with read_repair_chance=0.1
+	and dclocal_read_repair_chance=0.5;	
