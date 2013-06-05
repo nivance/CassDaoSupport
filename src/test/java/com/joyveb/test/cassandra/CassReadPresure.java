@@ -3,6 +3,7 @@ package com.joyveb.test.cassandra;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -15,13 +16,14 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import com.joyveb.test.cassandra.dao.SimGameInfoDAO;
 import com.joyveb.test.cassandra.domain.SimGameInfo;
 
-public class CassPresure {
+public class CassReadPresure {
 	private static SimGameInfoDAO dao;
 	private static ExecutorService executorService;
 	private static AtomicLong count = new AtomicLong(0);
+	private static AtomicLong hit_count = new AtomicLong(0);
 	private static AtomicLong failedCount = new AtomicLong(0);
 	private static boolean STOP = false;
-	private static long RUN_TIME = 3 * 60 * 60 * 1000;//
+	private static long RUN_TIME = 10 * 60 * 60 * 1000;//
 	private static long sleeptime = 60000;
 	private static int poolsize = 30;
 
@@ -60,12 +62,12 @@ public class CassPresure {
 		}
 		STOP = true;
 		executorService.shutdown();
-		System.out.println("presure is stop. count is " + count.get()
+		System.out.println("red presure is stop. count is " + count.get()
 				+ ", TPS is : " + (count.get() * 1000 / RUN_TIME)
-				+ ", failed is " + failedCount);
+				+ ", failed is " + failedCount + ", hitcount is " + hit_count);
 	}
-	
-	private static File file = new File("tps-" + poolsize);
+
+	private static File file = new File("tps-read-" + poolsize);
 	private static FileWriter fw = null;
 
 	public static void record(long time, long tps) {
@@ -91,13 +93,11 @@ public class CassPresure {
 		public void run() {
 			while (!STOP) {
 				try {
-					SimGameInfo info = new SimGameInfo();
-					info.setKey(IDGenerator.nextID());
-					info.setGamename("SLTO");
-					info.setLtype("SLTO");
-					info.setPlayname("SLTO");
-					info.setGamename("SLTO");
-					dao.insert(info);
+					String key = UUID.randomUUID().toString();
+					SimGameInfo info = dao.selectByPrimaryKey(key);
+					if (info != null) {
+						hit_count.incrementAndGet();
+					}
 					count.incrementAndGet();
 				} catch (Exception e) {
 					e.printStackTrace();

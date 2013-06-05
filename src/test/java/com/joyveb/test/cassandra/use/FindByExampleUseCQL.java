@@ -28,7 +28,7 @@ import com.joyveb.test.cassandra.domain.Bet;
  * 
  * 
  */
-public class FindByPageUseCQL {
+public class FindByExampleUseCQL {
 
 	final static String hosts = "192.168.3.143:9160";
 
@@ -46,7 +46,7 @@ public class FindByPageUseCQL {
 	}
 
 	@Test
-	public void findbypage() {
+	public void findByExample() {
 		ExampleByCQL example = new ExampleByCQL();
 		example.addEqExpress("WINCOUNT", 0).addEqExpress("BETTAX", (long) 0)
 				.addEqExpress("PLAYTYPEID", "3000").addEqExpress("SN", 1)
@@ -65,7 +65,7 @@ public class FindByPageUseCQL {
 	}
 
 	public static void main(String[] args) {
-		FindByPageUseCQL useBet = new FindByPageUseCQL();
+		FindByExampleUseCQL useBet = new FindByExampleUseCQL();
 
 		ConfigurableConsistencyLevel cl = new ConfigurableConsistencyLevel();
 		Map<String, HConsistencyLevel> clmap = new HashMap<String, HConsistencyLevel>();
@@ -78,6 +78,6 @@ public class FindByPageUseCQL {
 		keyspace = HFactory.createKeyspace(kp_name, cluster, cl);
 
 		useBet.init();
-		useBet.findbypage();
+		useBet.findByExample();
 	}
 }
