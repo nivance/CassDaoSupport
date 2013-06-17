@@ -141,7 +141,7 @@ public class SimDrawnumberDAOImpl extends CassandraDaoSupport<String, SimDrawnum
 		long start = System.currentTimeMillis();
 		Assert.notNull(state, "state is null");
 		IndexedSlicesPredicate<String, String, Integer> predicate =  
-				new IndexedSlicesPredicate<String, String, Integer>(stringSerializer, stringSerializer, IntegerSerializer.get());
+				new IndexedSlicesPredicate<String, String, Integer>(ss, ss, IntegerSerializer.get());
 		predicate.addExpression("STATE", IndexOperator.EQ, state.intValue());
 		ColumnFamilyResult<String, String> result = getCFTemplate().queryColumns(predicate);
 		List<SimDrawnumber> drawnumbers = cfResult2List(result);

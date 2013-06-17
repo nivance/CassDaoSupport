@@ -6,9 +6,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -48,13 +45,12 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 
 	protected @Setter Keyspace keyspace;// 相当于数据库名
 	protected @Setter String columnFamilyName;// 相当于表名
-	protected StringSerializer stringSerializer = StringSerializer.get();
-	protected Serializer<ByteBuffer> valueSerializer = ByteBufferSerializer
-			.get();
+	protected StringSerializer ss = StringSerializer.get();
+	protected Serializer<ByteBuffer> vs = ByteBufferSerializer.get();
 	protected Serializer<K> keySerializer;
-	protected final ReadWriteLock lock = new ReentrantReadWriteLock();
-	protected final Lock r = lock.readLock();
-	protected final Lock w = lock.writeLock();
+	// protected final ReadWriteLock lock = new ReentrantReadWriteLock();
+	// protected final Lock r = lock.readLock();
+	// protected final Lock w = lock.writeLock();
 
 	private ColumnFamilyTemplate<K, String> columnFamilyTemplate;
 
@@ -68,7 +64,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		this.columnFamilyName = columnFamilyName;
 		this.keySerializer = keySerializer;
 		columnFamilyTemplate = new ThriftColumnFamilyTemplate<K, String>(
-				keyspace, columnFamilyName, keySerializer, stringSerializer);
+				keyspace, columnFamilyName, keySerializer, ss);
 	}
 
 	public ColumnFamilyTemplate<K, String> getCFTemplate() {
@@ -93,10 +89,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		T t = null;
 		ColumnFamilyResult<K, String> result = null;
 		try {
-			r.lock();
+			// r.lock();
 			result = getCFTemplate().queryColumns(_key);
 		} finally {
-			r.unlock();
+			// r.unlock();
 		}
 		if (result.hasResults()) {
 			t = cfResult2Pojo(result);
@@ -162,7 +158,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			ColumnFamilyResult<K, String> result) {
 		byte[] bytes = result.getByteArray(StringUtils.upperCase(field
 				.getName()));
-		if(bytes==null){
+		if (bytes == null) {
 			return null;
 		}
 		return HectorObjectMapper.determineSerializer(field.getType())
@@ -181,13 +177,13 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		List<T> datas = new ArrayList<T>();
 		QueryResult<CqlRows<K, String, ByteBuffer>> result = null;
 		CqlQuery<K, String, ByteBuffer> cqlQuery = new CqlQuery<K, String, ByteBuffer>(
-				this.keyspace, keySerializer, stringSerializer, valueSerializer);
+				this.keyspace, keySerializer, ss, vs);
 		cqlQuery.setQuery(cql);
 		try {
-			r.lock();
+			// r.lock();
 			result = cqlQuery.execute();
 		} finally {
-			r.unlock();
+			// r.unlock();
 		}
 		if (result.get() != null) {
 			List<Row<K, String, ByteBuffer>> rows = result.get().getList();
@@ -209,10 +205,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 				keySerializer);
 		appendInsertionSelective(mutator, t);
 		try {
-			w.lock();
+			// w.lock();
 			getCFTemplate().executeBatch(mutator);
 		} finally {
-			w.unlock();
+			// w.unlock();
 		}
 	}
 
@@ -228,10 +224,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			appendInsertionSelective(mutator, pojo);
 		}
 		try {
-			w.lock();
+			// w.lock();
 			getCFTemplate().executeBatch(mutator);
 		} finally {
-			w.unlock();
+			// w.unlock();
 		}
 	}
 
@@ -247,9 +243,9 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 				if (result != null) {
 					Serializer serializer = HectorObjectMapper
 							.determineSerializer(result.getClass());
-					mutator.addInsertion(pojo.getKey(), columnFamilyName, HFactory
-							.createColumn(StringUtils.upperCase(name), result,
-									stringSerializer, serializer));
+					mutator.addInsertion(pojo.getKey(), columnFamilyName,
+							HFactory.createColumn(StringUtils.upperCase(name),
+									result, ss, serializer));
 				}
 			}
 		} catch (Exception e) {
@@ -300,10 +296,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		Mutator<K> mutator = updater.getCurrentMutator();
 		appendInsertionSelective(mutator, t);
 		try {
-			w.lock();
+			// w.lock();
 			getCFTemplate().update(updater);
 		} finally {
-			w.unlock();
+			// w.unlock();
 		}
 	}
 
@@ -320,10 +316,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			appendInsertionSelective(mutator, t);
 		}
 		try {
-			w.lock();
+			// w.lock();
 			getCFTemplate().update(updater);
 		} finally {
-			w.unlock();
+			// w.unlock();
 		}
 	}
 
@@ -334,10 +330,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	 */
 	public void delete(K key) {
 		try {
-			w.lock();
+			// w.lock();
 			getCFTemplate().deleteRow(key);
 		} finally {
-			w.unlock();
+			// w.unlock();
 		}
 	}
 
@@ -350,7 +346,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	public List<T> selectByExample(Example<K> example) {
 		long start = System.currentTimeMillis();
 		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = new ThriftRangeSlicesQuery<K, String, ByteBuffer>(
-				keyspace, keySerializer, stringSerializer, valueSerializer);
+				keyspace, keySerializer, ss, vs);
 		rangeSlicesQuery.setColumnFamily(columnFamilyName);
 		rangeSlicesQuery.setKeys(null, null);
 		rangeSlicesQuery.setRange(null, null, false, Integer.MAX_VALUE);
@@ -358,10 +354,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		example.appendExp2Query(rangeSlicesQuery);
 		QueryResult<OrderedRows<K, String, ByteBuffer>> result = null;
 		try {
-			r.lock();
+			// r.lock();
 			result = rangeSlicesQuery.execute();
 		} finally {
-			r.unlock();
+			// r.unlock();
 		}
 		OrderedRows<K, String, ByteBuffer> rows = result.get();
 		List<T> datas = orderedRows2ListT(rows);
@@ -380,19 +376,19 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		long start = System.currentTimeMillis();
 		StringBuffer cql = new StringBuffer();
 		cql.append("select * from ").append(this.columnFamilyName);
-		if(example != null && example.toString().length() > 0){
+		if (example != null && example.toString().length() > 0) {
 			cql.append(" WHERE ").append(example.toString());
 		}
 		CqlQuery<K, String, ByteBuffer> cqlQuery = new CqlQuery<K, String, ByteBuffer>(
-				this.keyspace, keySerializer, stringSerializer, valueSerializer);
+				this.keyspace, keySerializer, ss, vs);
 		List<T> datas = null;
 		cqlQuery.setQuery(cql.toString());
 		QueryResult<CqlRows<K, String, ByteBuffer>> result = null;
 		try {
-			r.lock();
+			// r.lock();
 			result = cqlQuery.execute();
 		} finally {
-			r.unlock();
+			// r.unlock();
 		}
 		datas = orderedRows2ListT(result.get());
 		log.debug(this.columnFamilyName + ":cql[" + cql + "] query cost:"
@@ -413,7 +409,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	}
 
 	/**
-	 * 分页查找(仅支持所有条件都是String类型的分页)
+	 * 分页查找(如果需要页面使用，推荐使用@findByPages方法)
 	 * 
 	 * @param example
 	 *            ：有值的字段即为条件 example为空,则抛出IllegalArgumentException
@@ -422,8 +418,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			K endKey) {
 		long start = System.currentTimeMillis();
 		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = HFactory
-				.createRangeSlicesQuery(keyspace, keySerializer,
-						stringSerializer, valueSerializer);
+				.createRangeSlicesQuery(keyspace, keySerializer, ss, vs);
 		rangeSlicesQuery.setColumnFamily(columnFamilyName);
 		rangeSlicesQuery.setKeys(startKey, endKey);
 		// reason from [https://github.com/hector-client/hector/wiki/User-Guide]
@@ -432,10 +427,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		example.appendExp2Query(rangeSlicesQuery);
 		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = null;
 		try {
-			r.lock();
+			// r.lock();
 			resultQuery = rangeSlicesQuery.execute();
 		} finally {
-			r.unlock();
+			// r.unlock();
 		}
 		List<T> beans = orderedRows2ListT(resultQuery.get());
 		log.debug(this.columnFamilyName + " findbypage cost:"
@@ -472,5 +467,47 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 				return pageList;
 			}
 		};
+	}
+
+	/**
+	 * 分页查找(推荐使用)
+	 * 
+	 * @param example
+	 *            ：有值的字段即为条件
+	 * @param pagesize
+	 *            :
+	 * @param startKey
+	 *            :开始key
+	 * @param endKey
+	 *            :结束key
+	 * @return
+	 */
+	public CassandraList<K, T> findByPages(Example<K> example, int pagesize,
+			K startKey, K endKey) {
+		long start = System.currentTimeMillis();
+		CassandraList<K, T> cassandraList = new CassandraList<K, T>();
+		Assert.notNull(example, "example is null.");
+		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = HFactory
+				.createRangeSlicesQuery(keyspace, keySerializer, ss, vs);
+		rangeSlicesQuery.setColumnFamily(columnFamilyName);
+		rangeSlicesQuery.setKeys(startKey, endKey);
+		// reason from [https://github.com/hector-client/hector/wiki/User-Guide]
+		rangeSlicesQuery.setRowCount(pagesize + 1);
+		rangeSlicesQuery.setReturnKeysOnly();
+		rangeSlicesQuery.setRange(null, null, false, Integer.MAX_VALUE);
+		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = rangeSlicesQuery
+				.execute();
+		if (resultQuery.get() != null) {
+			List<Row<K, String, ByteBuffer>> rows = resultQuery.get().getList();
+			if (rows != null && rows.size() > 0) {
+				K nextStartKey = resultQuery.get().peekLast().getKey();
+				cassandraList.setStartKey(nextStartKey);
+				List<T> beans = orderedRows2ListT(resultQuery.get());
+				cassandraList.setResultList(beans);
+			}
+		}
+		log.debug(this.columnFamilyName + " findbypages cost:"
+				+ (System.currentTimeMillis() - start) + "ms");
+		return cassandraList;
 	}
 }
