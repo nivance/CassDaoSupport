@@ -493,15 +493,20 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		rangeSlicesQuery.setKeys(startKey, endKey);
 		// reason from [https://github.com/hector-client/hector/wiki/User-Guide]
 		rangeSlicesQuery.setRowCount(pagesize + 1);
-		rangeSlicesQuery.setReturnKeysOnly();
 		rangeSlicesQuery.setRange(null, null, false, Integer.MAX_VALUE);
+		example.appendExp2Query(rangeSlicesQuery);
 		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = rangeSlicesQuery
 				.execute();
 		if (resultQuery.get() != null) {
 			List<Row<K, String, ByteBuffer>> rows = resultQuery.get().getList();
 			if (rows != null && rows.size() > 0) {
-				K nextStartKey = resultQuery.get().peekLast().getKey();
-				cassandraList.setStartKey(nextStartKey);
+				if (rows.size() > pagesize) {
+					K nextStartKey = resultQuery.get().peekLast().getKey();
+					cassandraList.setStartKey(nextStartKey);
+					rows.remove(rows.size() - 1);// 删除最后一行记录
+				}else{
+					cassandraList.setStartKey(null);
+				}
 				List<T> beans = orderedRows2ListT(resultQuery.get());
 				cassandraList.setResultList(beans);
 			}

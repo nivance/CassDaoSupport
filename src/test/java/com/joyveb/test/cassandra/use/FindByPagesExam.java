@@ -15,9 +15,9 @@ import org.junit.Test;
 
 import com.joyveb.support.cassandra.CassandraList;
 import com.joyveb.support.cassandra.Example;
-import com.joyveb.test.cassandra.dao.BetDAO;
-import com.joyveb.test.cassandra.dao.impl.BetDAOImpl;
-import com.joyveb.test.cassandra.domain.Bet;
+import com.joyveb.test.cassandra.dao.SimGameInfoDAO;
+import com.joyveb.test.cassandra.dao.impl.SimGameInfoDAOImpl;
+import com.joyveb.test.cassandra.domain.SimGameInfo;
 
 /**
  * cassandra 使用 Example FindByPage使用说明：
@@ -32,31 +32,45 @@ import com.joyveb.test.cassandra.domain.Bet;
  */
 public class FindByPagesExam {
 
-	final static String hosts = "192.168.3.143:9160";
+	final static String hosts = "192.168.3.21:9160";
 
 	final static Cluster cluster = HFactory.getOrCreateCluster("Test Cluster",
 			new CassandraHostConfigurator(hosts));
 
 	private static Keyspace keyspace = null;
-	private static String columnFamily = "BET";
+	private static String columnFamily = "T_SIM_GAMEINFO";
 	final static String kp_name = "gxsim";
-	private BetDAO dao;
+	private SimGameInfoDAO simGameInfoDAO;
 
 	@Before
 	public void init() {
-		dao = new BetDAOImpl(keyspace, columnFamily);
+		simGameInfoDAO = new SimGameInfoDAOImpl(keyspace, columnFamily);
 	}
 
 	@Test
 	public void findbypage() {
-		int pageSize = 10;
+		int pagesize = 8;
 		Example<String> example = new Example<String>();
-		example.addEqExpress("WINCOUNT", 0).addEqExpress("BETTAX", (long) 0)
-				.addEqExpress("PLAYTYPEID", "3000").addEqExpress("SN", 1);
-		CassandraList<String, Bet> cassandraList = dao.findByPages(example, pageSize, null, null);
+		example.addEqExpress("GAMENAME", "PCK3").addEqExpress("LTYPE", "PCK3")
+				.addEqExpress("PLAYNAME", "PCK3")
+				.addEqExpress("PRIZEDATE", "2013-06-06");
+		CassandraList<String, SimGameInfo> cassandraList = simGameInfoDAO
+				.findByPages(example, pagesize, null, null);
+		for (SimGameInfo info : cassandraList.getResultList()) {
+			System.out.println(info);
+		}
 		
-		cassandraList = dao.findByPages(example, pageSize, cassandraList.getStartKey(), null);
-		
+		while (cassandraList.getStartKey() != null) {
+			cassandraList = simGameInfoDAO.findByPages(example, pagesize,
+					cassandraList.getStartKey(), null);
+			for (SimGameInfo info : cassandraList.getResultList()) {
+				System.out.println(info);
+			}
+			System.out.println("------------------"
+					+ cassandraList.getResultList().size()
+					+ "--------------------------");
+		}
+		System.out.println(cassandraList.getResultList().size());
 	}
 
 	public static void main(String[] args) {

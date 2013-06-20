@@ -3,6 +3,8 @@ package com.joyveb.test.cassandra.dao;
 import java.util.List;
 
 import com.joyveb.support.cassandra.BaseCassandraDao;
+import com.joyveb.support.cassandra.CassandraList;
+import com.joyveb.support.cassandra.Example;
 import com.joyveb.test.cassandra.domain.SimGameInfo;
 
 public interface SimGameInfoDAO extends BaseCassandraDao<String, SimGameInfo> {
@@ -22,9 +24,13 @@ public interface SimGameInfoDAO extends BaseCassandraDao<String, SimGameInfo> {
 	 * @mbggenerated Tue Aug 21 10:23:40 CST 2012
 	 */
 	List<SimGameInfo> selectByExample(SimGameInfo example);
-	
+
 	SimGameInfo selectByPrimaryKey(String key);
-	
+
 	void batchInsert(List<SimGameInfo> list);
+
+	public CassandraList<String, SimGameInfo> findByPages(
+			Example<String> example, int pagesize, String startKey,
+			String endKey);
 
 }
