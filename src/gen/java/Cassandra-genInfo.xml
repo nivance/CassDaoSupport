@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<generatorConfiguration>
+	<comment>targetRuntime is Cassandara1.2.0 and Hecotor-1.1-2</comment>
+
+	<context id="CassDaoSupport">
+		<host>192.168.3.141:9160</host>
+		<cluster>TestCluster</cluster>
+		<keyspace>gxsim</keyspace>
+		<targetSource>src/gen/java</targetSource>
+		<targetPackage>com.joyveb.cassandra</targetPackage>
+
+		<ColumnFamilys>
+			<ColumnFamily>
+				<name>T_SIM_GAMEINFO</name>
+				<domainObjectName>SimGameinfo</domainObjectName>
+			</ColumnFamily>
+			<ColumnFamily>
+				<name>BET</name>
+				<domainObjectName>Bet</domainObjectName>
+			</ColumnFamily>
+			<ColumnFamily>
+				<name>ISSUEINFO</name>
+				<domainObjectName>Issueinfo</domainObjectName>
+			</ColumnFamily>
+			<ColumnFamily>
+				<name>STATION</name>
+				<domainObjectName>Station</domainObjectName>
+			</ColumnFamily>
+			<ColumnFamily>
+				<name>TICKET</name>
+				<domainObjectName>Ticket</domainObjectName>
+			</ColumnFamily>
+		</ColumnFamilys>
+		
+	</context>
+</generatorConfiguration>

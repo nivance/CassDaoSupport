@@ -3,5 +3,6 @@
     <wb-module deploy-name="CassDaoSupport">
         <wb-resource deploy-path="/" source-path="/src/main/resources"/>
         <wb-resource deploy-path="/" source-path="/src/cassandra/java"/>
+        <wb-resource deploy-path="/" source-path="/src/gen/java"/>
     </wb-module>
 </project-modules>
