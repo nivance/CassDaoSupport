@@ -23,7 +23,6 @@ import me.prettyprint.hector.api.Keyspace;
 import me.prettyprint.hector.api.Serializer;
 import me.prettyprint.hector.api.beans.OrderedRows;
 import me.prettyprint.hector.api.beans.Row;
-import me.prettyprint.hector.api.beans.Rows;
 import me.prettyprint.hector.api.factory.HFactory;
 import me.prettyprint.hector.api.mutation.Mutator;
 import me.prettyprint.hector.api.query.QueryResult;
@@ -360,7 +359,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			// r.unlock();
 		}
 		OrderedRows<K, String, ByteBuffer> rows = result.get();
-		List<T> datas = orderedRows2ListT(rows);
+		List<T> datas = null;
+		if(rows != null){
+			datas = orderedRows2ListT(rows.getList());
+		}
 		log.debug(this.columnFamilyName + " query by example cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
 		return datas;
@@ -390,13 +392,15 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		} finally {
 			// r.unlock();
 		}
-		datas = orderedRows2ListT(result.get());
+		if(result != null){			
+			datas = orderedRows2ListT(result.get().getList());
+		}
 		log.debug(this.columnFamilyName + ":cql[" + cql + "] query cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
 		return datas;
 	}
 
-	private List<T> orderedRows2ListT(Rows<K, String, ByteBuffer> rows) {
+	private List<T> orderedRows2ListT(List<Row<K, String, ByteBuffer>> rows) {
 		List<T> datas = new ArrayList<T>();
 		if (rows != null) {
 			Iterator<Row<K, String, ByteBuffer>> rowsIterator = rows.iterator();
@@ -432,10 +436,13 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		} finally {
 			// r.unlock();
 		}
-		List<T> beans = orderedRows2ListT(resultQuery.get());
+		List<T> datas = null;
+		if(resultQuery != null){
+			datas = orderedRows2ListT(resultQuery.get().getList());
+		}
 		log.debug(this.columnFamilyName + " findbypage cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
-		return beans;
+		return datas;
 	}
 
 	public PageIterator<K, T> createPageIterator(final K startkey,
@@ -507,12 +514,11 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 				}else{
 					cassandraList.setStartKey(null);
 				}
-				List<T> beans = orderedRows2ListT(resultQuery.get());
+				List<T> beans = orderedRows2ListT(rows);
 				cassandraList.setResultList(beans);
 			}
 		}
-		log.debug(this.columnFamilyName + " findbypages cost:"
-				+ (System.currentTimeMillis() - start) + "ms");
+		log.debug(this.columnFamilyName + " findbypages cost:" + (System.currentTimeMillis() - start) + "ms");
 		return cassandraList;
 	}
 }

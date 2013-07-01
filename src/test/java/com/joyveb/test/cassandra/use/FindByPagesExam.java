@@ -32,7 +32,7 @@ import com.joyveb.test.cassandra.domain.SimGameInfo;
  */
 public class FindByPagesExam {
 
-	final static String hosts = "192.168.3.21:9160";
+	final static String hosts = "192.168.3.141:9160";
 
 	final static Cluster cluster = HFactory.getOrCreateCluster("Test Cluster",
 			new CassandraHostConfigurator(hosts));
@@ -55,11 +55,10 @@ public class FindByPagesExam {
 				.addEqExpress("PLAYNAME", "PCK3")
 				.addEqExpress("PRIZEDATE", "2013-06-06");
 		CassandraList<String, SimGameInfo> cassandraList = simGameInfoDAO
-				.findByPages(example, pagesize, null, null);
+				.findByPages(example, pagesize, "224505", null);
 		for (SimGameInfo info : cassandraList.getResultList()) {
 			System.out.println(info);
 		}
-		
 		while (cassandraList.getStartKey() != null) {
 			cassandraList = simGameInfoDAO.findByPages(example, pagesize,
 					cassandraList.getStartKey(), null);
