@@ -65,9 +65,6 @@ public class FindByPagesExam {
 			for (SimGameInfo info : cassandraList.getResultList()) {
 				System.out.println(info);
 			}
-			System.out.println("------------------"
-					+ cassandraList.getResultList().size()
-					+ "--------------------------");
 		}
 		System.out.println(cassandraList.getResultList().size());
 	}

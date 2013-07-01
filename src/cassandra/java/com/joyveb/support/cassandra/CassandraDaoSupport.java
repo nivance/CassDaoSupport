@@ -493,7 +493,6 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			K startKey, K endKey) {
 		long start = System.currentTimeMillis();
 		CassandraList<K, T> cassandraList = new CassandraList<K, T>();
-		Assert.notNull(example, "example is null.");
 		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = HFactory
 				.createRangeSlicesQuery(keyspace, keySerializer, ss, vs);
 		rangeSlicesQuery.setColumnFamily(columnFamilyName);
