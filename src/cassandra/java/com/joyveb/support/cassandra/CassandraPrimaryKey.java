@@ -1,5 +1,7 @@
 package com.joyveb.support.cassandra;
 
+import java.io.Serializable;
+
 import lombok.Data;
 
 /**
@@ -13,7 +15,7 @@ import lombok.Data;
  *       2、Cassandra table 字段都大写
  */
 @Data
-public class CassandraPrimaryKey<K> {
+public class CassandraPrimaryKey<K> implements Serializable{
 
 	protected K key;
 

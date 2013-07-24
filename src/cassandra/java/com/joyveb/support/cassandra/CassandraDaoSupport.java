@@ -187,8 +187,10 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		if (result.get() != null) {
 			List<Row<K, String, ByteBuffer>> rows = result.get().getList();
 			for (Row<K, String, ByteBuffer> row : rows) {
-				T data = row2POJO(row);
-				datas.add(data);
+				if(row.getColumnSlice().getColumns().size()>0){ 
+					T data = row2POJO(row);
+					datas.add(data);
+				}
 			}
 		}
 		log.debug(this.columnFamilyName + ": cql[" + cql + "] query cost:"
@@ -403,10 +405,11 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	private List<T> orderedRows2ListT(List<Row<K, String, ByteBuffer>> rows) {
 		List<T> datas = new ArrayList<T>();
 		if (rows != null) {
-			Iterator<Row<K, String, ByteBuffer>> rowsIterator = rows.iterator();
-			while (rowsIterator.hasNext()) {
-				T data = row2POJO(rowsIterator.next());
-				datas.add(data);
+			for (Row<K, String, ByteBuffer> info : rows) {
+				if(info.getColumnSlice().getColumns().size()!=0){ 
+					T data = row2POJO(info);
+					datas.add(data);
+				}
 			}
 		}
 		return datas;
