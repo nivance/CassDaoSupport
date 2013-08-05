@@ -4,14 +4,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import me.prettyprint.cassandra.model.CqlQuery;
 import me.prettyprint.cassandra.model.CqlRows;
-import me.prettyprint.cassandra.model.thrift.ThriftRangeSlicesQuery;
 import me.prettyprint.cassandra.serializers.ByteBufferSerializer;
 import me.prettyprint.cassandra.serializers.StringSerializer;
 import me.prettyprint.cassandra.service.template.ColumnFamilyResult;
@@ -42,8 +40,10 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 
-	protected @Setter Keyspace keyspace;// 相当于数据库名
-	protected @Setter String columnFamilyName;// 相当于表名
+	protected @Setter
+	Keyspace keyspace;// 相当于数据库名
+	protected @Setter
+	String columnFamilyName;// 相当于表名
 	protected StringSerializer ss = StringSerializer.get();
 	protected Serializer<ByteBuffer> vs = ByteBufferSerializer.get();
 	protected Serializer<K> keySerializer;
@@ -173,7 +173,6 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	public List<T> selectByCQL(String cql) {
 		long start = System.currentTimeMillis();
 		Assert.notNull(cql, "cql is null");
-		List<T> datas = new ArrayList<T>();
 		QueryResult<CqlRows<K, String, ByteBuffer>> result = null;
 		CqlQuery<K, String, ByteBuffer> cqlQuery = new CqlQuery<K, String, ByteBuffer>(
 				this.keyspace, keySerializer, ss, vs);
@@ -184,18 +183,9 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		} finally {
 			// r.unlock();
 		}
-		if (result.get() != null) {
-			List<Row<K, String, ByteBuffer>> rows = result.get().getList();
-			for (Row<K, String, ByteBuffer> row : rows) {
-				if(row.getColumnSlice().getColumns().size()>0){ 
-					T data = row2POJO(row);
-					datas.add(data);
-				}
-			}
-		}
 		log.debug(this.columnFamilyName + ": cql[" + cql + "] query cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
-		return datas;
+		return orderedRows2ListT(result.get().getList());
 	}
 
 	/**
@@ -346,25 +336,11 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	 */
 	public List<T> selectByExample(Example<K> example) {
 		long start = System.currentTimeMillis();
-		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = new ThriftRangeSlicesQuery<K, String, ByteBuffer>(
-				keyspace, keySerializer, ss, vs);
-		rangeSlicesQuery.setColumnFamily(columnFamilyName);
-		rangeSlicesQuery.setKeys(null, null);
-		rangeSlicesQuery.setRange(null, null, false, Integer.MAX_VALUE);
-		rangeSlicesQuery.setRowCount(Integer.MAX_VALUE);
-		example.appendExp2Query(rangeSlicesQuery);
-		QueryResult<OrderedRows<K, String, ByteBuffer>> result = null;
-		try {
-			// r.lock();
-			result = rangeSlicesQuery.execute();
-		} finally {
-			// r.unlock();
-		}
-		OrderedRows<K, String, ByteBuffer> rows = result.get();
-		List<T> datas = null;
-		if(rows != null){
-			datas = orderedRows2ListT(rows.getList());
-		}
+		// Integer.MAX_VALUE-1
+		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = getQueryResult(
+				example, Integer.MAX_VALUE - 1, null, null);
+		OrderedRows<K, String, ByteBuffer> rows = resultQuery.get();
+		List<T> datas = orderedRows2ListT(rows.getList());
 		log.debug(this.columnFamilyName + " query by example cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
 		return datas;
@@ -394,9 +370,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		} finally {
 			// r.unlock();
 		}
-		if(result != null){			
-			datas = orderedRows2ListT(result.get().getList());
-		}
+		datas = orderedRows2ListT(result.get().getList());
 		log.debug(this.columnFamilyName + ":cql[" + cql + "] query cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
 		return datas;
@@ -406,7 +380,8 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		List<T> datas = new ArrayList<T>();
 		if (rows != null) {
 			for (Row<K, String, ByteBuffer> info : rows) {
-				if(info.getColumnSlice().getColumns().size()!=0){ 
+				// 判断字段是否为空
+				if (info.getColumnSlice().getColumns().size() != 0) {
 					T data = row2POJO(info);
 					datas.add(data);
 				}
@@ -424,6 +399,26 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 	public List<T> findByPage(Example<K> example, int pagesize, K startKey,
 			K endKey) {
 		long start = System.currentTimeMillis();
+		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = getQueryResult(
+				example, pagesize, startKey, endKey);
+		List<T> beans = orderedRows2ListT(resultQuery.get().getList());
+		// 包含null的不等于0 并且分页页数不够
+		if (resultQuery.get().getList().size() != 0
+				&& pagesize - beans.size() > 0) {
+			beans.addAll(findByPage(example, pagesize - beans.size(), startKey,
+					endKey));
+		}
+		log.debug(this.columnFamilyName + " findbypage cost:"
+				+ (System.currentTimeMillis() - start) + "ms");
+		return beans;
+	}
+
+
+	/**
+	 * 查询基础方法
+	 */
+	private QueryResult<OrderedRows<K, String, ByteBuffer>> getQueryResult(
+			Example<K> example, int pagesize, K startKey, K endKey) {
 		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = HFactory
 				.createRangeSlicesQuery(keyspace, keySerializer, ss, vs);
 		rangeSlicesQuery.setColumnFamily(columnFamilyName);
@@ -439,13 +434,7 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		} finally {
 			// r.unlock();
 		}
-		List<T> datas = null;
-		if(resultQuery != null){
-			datas = orderedRows2ListT(resultQuery.get().getList());
-		}
-		log.debug(this.columnFamilyName + " findbypage cost:"
-				+ (System.currentTimeMillis() - start) + "ms");
-		return datas;
+		return resultQuery;
 	}
 
 	public PageIterator<K, T> createPageIterator(final K startkey,
@@ -496,31 +485,78 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 			K startKey, K endKey) {
 		long start = System.currentTimeMillis();
 		CassandraList<K, T> cassandraList = new CassandraList<K, T>();
+		Assert.notNull(example, "example is null.");
+		// reason from [https://github.com/hector-client/hector/wiki/User-Guide]
+		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = getQueryResult(
+				example, pagesize, startKey, endKey);
+		List<Row<K, String, ByteBuffer>> rows = resultQuery.get().getList();
+		List<T> resultList = new ArrayList<T>();
+		while (true) {
+			List<T> beans = orderedRows2ListT(rows);
+			resultList.addAll(beans);
+			if (resultList.size() > pagesize) {
+				K nextStartKey = resultQuery.get().peekLast().getKey();
+				cassandraList.setStartKey(nextStartKey);
+				resultList.remove(resultList.size() - 1);// 删除最后一行记录
+				cassandraList.setResultList(resultList);
+				break;
+			} else if (rows.size() > pagesize) {
+				K nextStartKey = resultQuery.get().peekLast().getKey();
+				resultQuery = getQueryResult(example, pagesize - beans.size(),
+						nextStartKey, endKey);
+				rows = resultQuery.get().getList();
+				cassandraList.setStartKey(nextStartKey);
+			} else {
+				cassandraList.setResultList(resultList);
+				cassandraList.setStartKey(null);
+				break;
+			}
+		}
+		log.debug(this.columnFamilyName + " findbypages cost:"
+				+ (System.currentTimeMillis() - start) + "ms");
+		return cassandraList;
+	}
+
+	public Integer count(Example<K> example) {
+		long start = System.currentTimeMillis();
 		RangeSlicesQuery<K, String, ByteBuffer> rangeSlicesQuery = HFactory
 				.createRangeSlicesQuery(keyspace, keySerializer, ss, vs);
 		rangeSlicesQuery.setColumnFamily(columnFamilyName);
-		rangeSlicesQuery.setKeys(startKey, endKey);
-		// reason from [https://github.com/hector-client/hector/wiki/User-Guide]
-		rangeSlicesQuery.setRowCount(pagesize + 1);
+		rangeSlicesQuery.setKeys(null, null);
+		rangeSlicesQuery.setRowCount(Integer.MAX_VALUE);// 多取出一条,下次从该条开始查
 		rangeSlicesQuery.setRange(null, null, false, Integer.MAX_VALUE);
+		// rangeSlicesQuery.setReturnKeysOnly();
 		example.appendExp2Query(rangeSlicesQuery);
-		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = rangeSlicesQuery
-				.execute();
-		if (resultQuery.get() != null) {
-			List<Row<K, String, ByteBuffer>> rows = resultQuery.get().getList();
-			if (rows != null && rows.size() > 0) {
-				if (rows.size() > pagesize) {
-					K nextStartKey = resultQuery.get().peekLast().getKey();
-					cassandraList.setStartKey(nextStartKey);
-					rows.remove(rows.size() - 1);// 删除最后一行记录
-				}else{
-					cassandraList.setStartKey(null);
-				}
-				List<T> beans = orderedRows2ListT(rows);
-				cassandraList.setResultList(beans);
-			}
+		QueryResult<OrderedRows<K, String, ByteBuffer>> resultQuery = null;
+		try {
+			// r.lock();
+			resultQuery = rangeSlicesQuery.execute();
+		} finally {
+			// r.unlock();
 		}
-		log.debug(this.columnFamilyName + " findbypages cost:" + (System.currentTimeMillis() - start) + "ms");
-		return cassandraList;
+		log.debug(this.columnFamilyName + " count cost:"
+				+ (System.currentTimeMillis() - start) + "ms");
+		return resultQuery.get().getCount();
+	}
+	
+	/**
+	 * 清表
+	 */
+	public void truncate() {
+		long start = System.currentTimeMillis();
+		StringBuffer cql = new StringBuffer();
+		cql.append("truncate ").append(this.columnFamilyName);
+		CqlQuery<K, String, ByteBuffer> cqlQuery = new CqlQuery<K, String, ByteBuffer>(
+				this.keyspace, keySerializer, ss, vs);
+		cqlQuery.setQuery(cql.toString());
+		QueryResult<CqlRows<K, String, ByteBuffer>> result = null;
+		try {
+			// r.lock();
+			result = cqlQuery.execute();
+		} finally {
+			// r.unlock();
+		}
+		log.debug(this.columnFamilyName + ":cql[" + cql + "] truncate cost:"
+				+ (System.currentTimeMillis() - start) + "ms");
 	}
 }
