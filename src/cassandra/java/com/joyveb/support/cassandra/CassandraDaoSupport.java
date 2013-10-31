@@ -8,8 +8,10 @@ import java.util.List;
 
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import me.prettyprint.cassandra.model.Cql3Query;
 import me.prettyprint.cassandra.model.CqlQuery;
 import me.prettyprint.cassandra.model.CqlRows;
+import me.prettyprint.cassandra.serializers.BooleanSerializer;
 import me.prettyprint.cassandra.serializers.ByteBufferSerializer;
 import me.prettyprint.cassandra.serializers.StringSerializer;
 import me.prettyprint.cassandra.service.template.ColumnFamilyResult;
@@ -40,16 +42,11 @@ import org.apache.commons.lang3.StringUtils;
 @Slf4j
 public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 
-	protected @Setter
-	Keyspace keyspace;// 相当于数据库名
-	protected @Setter
-	String columnFamilyName;// 相当于表名
+	protected @Setter Keyspace keyspace;// 相当于数据库名
+	protected @Setter String columnFamilyName;// 相当于表名
 	protected StringSerializer ss = StringSerializer.get();
 	protected Serializer<ByteBuffer> vs = ByteBufferSerializer.get();
 	protected Serializer<K> keySerializer;
-	// protected final ReadWriteLock lock = new ReentrantReadWriteLock();
-	// protected final Lock r = lock.readLock();
-	// protected final Lock w = lock.writeLock();
 
 	private ColumnFamilyTemplate<K, String> columnFamilyTemplate;
 
@@ -186,6 +183,19 @@ public abstract class CassandraDaoSupport<K, T extends CassandraPrimaryKey<K>> {
 		log.debug(this.columnFamilyName + ": cql[" + cql + "] query cost:"
 				+ (System.currentTimeMillis() - start) + "ms");
 		return orderedRows2ListT(result.get().getList());
+	}
+	
+	public boolean cas(String cql){//依赖cql3query
+		Assert.notNull(cql, "cql is null");
+		Cql3Query<K, String, ByteBuffer> cql3Query = new Cql3Query<K, String, ByteBuffer>(
+				this.keyspace, keySerializer, ss, vs);
+		cql3Query.setQuery(cql);
+		QueryResult<CqlRows<K, String, ByteBuffer>> result = cql3Query.execute();
+		if(result.get().getList() != null){
+			return BooleanSerializer.get().fromByteBuffer(result.get().getList().get(0).getColumnSlice().getColumnByName("[applied]").getValue());
+		}else{
+			return false;
+		}
 	}
 
 	/**

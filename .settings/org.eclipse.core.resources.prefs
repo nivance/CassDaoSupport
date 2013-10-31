@@ -1,5 +1,7 @@
-#Tue Jun 25 16:45:28 CST 2013
 eclipse.preferences.version=1
 encoding//src/gen/java/com/joyveb/gencode/cassandra/GoGenerate.java=UTF-8
+encoding//src/main/resources=UTF-8
 encoding//src/main/resources/cassandra.properties=UTF-8
+encoding//src/test/java=UTF-8
 encoding/<project>=UTF-8
+encoding/cassandra.properties=UTF-8

@@ -32,5 +32,7 @@ public interface SimGameInfoDAO extends BaseCassandraDao<String, SimGameInfo> {
 	public CassandraList<String, SimGameInfo> findByPages(
 			Example<String> example, int pagesize, String startKey,
 			String endKey);
+	
+	public boolean cas(String cql);
 
 }
